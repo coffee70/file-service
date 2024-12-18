@@ -1,14 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const cors = require('cors')
 const fs = require('fs');
 require('dotenv').config();
-
-const corsOptions = {
-    origin: process.env.MANAGER_URL,
-    optionsSuccessStatus: 200
-}
 
 const app = express();
 const PORT = process.env.PORT || 9000;
@@ -30,8 +24,27 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Serve static files from the "uploads" directory
-app.use('/uploads', cors(corsOptions), express.static(path.join(__dirname, 'uploads')));
+// Remove the static file serving line and replace with GET endpoint
+app.get('/get/:filename', (req, res) => {
+    const filePath = path.join(__dirname, 'uploads', req.params.filename);
+    
+    // Check if file exists
+    fs.access(filePath, fs.constants.F_OK, (err) => {
+        if (err) {
+            console.error(`File not found: ${req.params.filename}`);
+            return res.status(404).json({ error: 'File not found' });
+        }
+        
+        // Send file
+        res.sendFile(filePath, (err) => {
+            if (err) {
+                console.error(`Error sending file: ${req.params.filename}`);
+                return res.status(500).json({ error: 'Error sending file' });
+            }
+            console.log(`File sent: ${req.params.filename}`);
+        });
+    });
+});
 
 app.post('/upload', upload.single('file'), (req, res) => {
     const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.originalname}`;
@@ -52,5 +65,5 @@ app.delete('/delete/:filename', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT} and accepting request from ${process.env.MANAGER_URL}`);
+    console.log(`Server is running on port ${PORT}`);
 });
